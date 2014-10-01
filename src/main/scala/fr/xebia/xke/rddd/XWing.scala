@@ -7,7 +7,6 @@ import scala.concurrent.duration._
 
 class XWing extends Actor {
 
-
   def receive = {
     case Attack(targetPath) =>
 

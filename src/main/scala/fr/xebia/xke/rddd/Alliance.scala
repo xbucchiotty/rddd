@@ -1,6 +1,6 @@
 package fr.xebia.xke.rddd
 
-import akka.actor.{ActorRef, Actor}
+import akka.actor.{Props, ActorRef, Actor}
 import fr.xebia.xke.rddd.infra.Base
 
 class Alliance extends Actor {
@@ -12,13 +12,29 @@ class Alliance extends Actor {
 
 
 
+  var squadronsHealth = squadrons.map(squadron => (squadron.path.name, 4)).toMap
 
+  override def preStart(): Unit = {
+    context.system.eventStream.subscribe(self, classOf[XWingLost])
+    val gameListener = context.actorOf(Props[SquadronEventListener], "squadronEventListener")
 
-  //TODO#1 : Find death star and order Attack
-  //TODO#5 : Watch XWing lost
-  //TODO#8 : Watch all SquadronEvent
-  def receive = PartialFunction.empty
+    context.system.eventStream.subscribe(gameListener, classOf[SquadronEvent])
+  }
 
+  def receive = {
+    case Attack(empire) =>
+      val deathStar = empire / "deathStar-1"
+      squadrons.foreach(squadron => squadron ! Attack(deathStar))
+
+    case XWingLost(squadronId, _) =>
+      val previousHealth = squadronsHealth(squadronId)
+
+      if (previousHealth == 1) {
+        squadron(squadronId).map(_ ! Retreat)
+      } else {
+        squadronsHealth = squadronsHealth.updated(squadronId, previousHealth - 1)
+      }
+  }
 
 
 
@@ -31,4 +47,18 @@ class Alliance extends Actor {
 
   def squadron(id: SquadronId): Option[ActorRef] =
     context.child(id)
+}
+
+class SquadronEventListener extends Actor {
+
+  def receive: Receive = {
+    case SquadronCreated(squadron) =>
+      println(s"<$squadron> is created")
+
+    case SquadronSent(squadron, destination) =>
+      println(s"<$squadron> is traveling to $destination")
+
+    case SquadronArrived(squadron, destination) =>
+      println(s"<$squadron> arrives at $destination")
+  }
 }

@@ -12,13 +12,50 @@ class Squadron(base: ActorPath, size: Int) extends Actor {
 
 
 
+  override def preStart(): Unit = {
+    publish(SquadronCreated(squadronId))
+  }
 
-  //TODO#2 : Receive Attack   => sendMe Arrived + SquadronSent
-  //TODO#3 : Receive Arrived  => Attack -> XWing + SquadronArrived
-  //TODO#4 : Receive FireBack => stop XWing + XWingLost
-  //TODO#6 : Retreat          => StopAttack + sendMe Arrived + SquadronSent
-  //TODO#7 : SquadronCreated  =>
-  def receive = PartialFunction.empty
+  def idle: Receive = {
+    case Attack(target) =>
+      sendMeIn(1.5.seconds, Arrived)
+
+      publish(SquadronSent(squadronId, target))
+
+      context become traveling(target, nextState = fighting(target))
+  }
+
+
+  def traveling(destination: ActorPath, nextState: Receive): Receive = {
+    case Arrived =>
+      publish(SquadronArrived(squadronId, destination))
+
+      xwings.foreach(_ ! Attack(destination))
+
+      context become nextState
+  }
+
+
+  def fighting(target: ActorPath): Receive = {
+    case FireBack(xwingId) =>
+
+      xwing(xwingId).foreach(context stop)
+
+      publish(XWingLost(squadronId, xwingId))
+
+    case Retreat =>
+      sendMeIn(1.5.seconds, Arrived)
+
+      publish(SquadronSent(squadronId, base))
+
+      xwings.foreach(_ ! StopAttack)
+
+      context become traveling(base, nextState = idle)
+
+  }
+
+
+  def receive = idle
 
 
 
