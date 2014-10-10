@@ -1,78 +1,129 @@
 package fr.xebia.xke.rddd
 
-import akka.actor.{Actor, ActorPath, Props}
+import akka.actor.{ActorPath, Props}
+import akka.persistence.{RecoveryCompleted, PersistentActor}
 
 import scala.concurrent.duration._
 
-class Squadron(base: ActorPath, size: Int) extends Actor {
+class Squadron(base: ActorPath, size: Int) extends PersistentActor {
+
+  val squadronId = self.path.name
+
+  override val persistenceId: String = squadronId
+
 
   1 to size map (i => context.actorOf(XWing.props(), s"$squadronId-$i"))
 
 
-
-
-
   override def preStart(): Unit = {
-    publish(SquadronCreated(squadronId))
+    publish(SquadronCreated(persistenceId))
+    super.preStart()
   }
 
   def idle: Receive = {
     case Attack(target) =>
-      sendMeIn(1.5.seconds, Arrived)
+      persist(SquadronSentToFight(squadronId, target)) { event =>
+        publish(event)
 
-      publish(SquadronSent(squadronId, target))
+        travel()
 
-      context become traveling(target, nextState = fighting(target))
+        context become traveling(prepareToFight(target))
+      }
   }
 
 
-  def traveling(destination: ActorPath, nextState: Receive): Receive = {
+  def travel() {
+    sendMeIn(1.5.seconds, Arrived)
+  }
+
+  def prepareToFight(target: ActorPath): () => Unit = {
+    () =>
+      persist(SquadronArrivedToFight(squadronId, target)) {
+        event => publish(event)
+
+          attack(target)
+
+          context become fighting(target)
+      }
+  }
+
+  def attack(target: ActorPath) {
+    xwings.foreach(_ ! Attack(target))
+  }
+
+  def prepareToRetreat(target: ActorPath): () => Unit = {
+    () =>
+      persist(SquadronArrivedToRetreat(squadronId, target)) {
+        event => publish(event)
+
+          context become idle
+      }
+  }
+
+  def traveling(transition: () => Unit): Receive = {
     case Arrived =>
-      publish(SquadronArrived(squadronId, destination))
+      transition()
 
-      xwings.foreach(_ ! Attack(destination))
-
-      context become nextState
   }
 
 
   def fighting(target: ActorPath): Receive = {
     case FireBack(xwingId) =>
 
-      xwing(xwingId).foreach(context stop)
+      persist(XWingLost(squadronId, xwingId)) { event =>
+        publish(event)
 
-      publish(XWingLost(squadronId, xwingId))
+        xwing(xwingId).foreach(context stop)
+      }
 
     case Retreat =>
-      sendMeIn(1.5.seconds, Arrived)
 
-      publish(SquadronSent(squadronId, base))
+      persist(SquadronSentToRetreat(squadronId, base)) { event =>
+        sendMeIn(1.5.seconds, Arrived)
 
-      xwings.foreach(_ ! StopAttack)
+        xwings.foreach(_ ! StopAttack)
 
-      context become traveling(base, nextState = idle)
+        context become traveling(prepareToRetreat(base))
+      }
 
   }
 
 
-  def receive = idle
+  def receiveCommand = idle
 
 
+  private var lastTransitionToRecover: Option[() => Unit] = None
+
+  def receiveRecover: Receive = {
+    case event@SquadronSentToFight(`squadronId`, target) =>
+      publish(event)
+      context become traveling(prepareToFight(ActorPath.fromString(target)))
+      lastTransitionToRecover = Some(() => travel())
 
 
+    case event@SquadronSentToRetreat(`squadronId`, target) =>
+      publish(event)
+      context become traveling(prepareToRetreat(ActorPath.fromString(target)))
+      lastTransitionToRecover = Some(() => travel())
 
 
+    case event@SquadronArrivedToFight(`squadronId`, target) =>
+      publish(event)
+      context become fighting(ActorPath.fromString(target))
+      lastTransitionToRecover = Some(() => attack(ActorPath.fromString(target)))
 
 
+    case event@SquadronArrivedToRetreat(`squadronId`, _) =>
+      publish(event)
+      context become idle
 
+    case event@XWingLost(`squadronId`, xwingId) =>
+      publish(event)
+      xwing(xwingId).map(context stop)
 
-
-
-
-
-
-
-
+    case RecoveryCompleted =>
+      lastTransitionToRecover.map(_.apply())
+  }
 
 
   def sendMeIn(in: FiniteDuration, message: AnyRef): Unit = {
@@ -83,8 +134,6 @@ class Squadron(base: ActorPath, size: Int) extends Actor {
   def publish(event: AnyRef): Unit = {
     context.system.eventStream.publish(event)
   }
-
-  def squadronId = self.path.name
 
   def xwing(id: XWingId) = context.child(id)
 

@@ -28,7 +28,7 @@ class XWing extends Actor {
     operation.foreach(_.cancel())
   }
 
-  def xwingId = self.path.name
+  val xwingId = self.path.name
 
   def repeatEvery(every: FiniteDuration)(f: => Unit) {
     import context.dispatcher

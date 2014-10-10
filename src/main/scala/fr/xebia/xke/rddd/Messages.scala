@@ -27,11 +27,16 @@ case object StopAttack
 trait SquadronEvent
 case class SquadronCreated(squadron: SquadronId) extends SquadronEvent
 
-case class SquadronSent(squadron: SquadronId,
+case class SquadronSentToFight(squadron: SquadronId,
                         location: Location) extends SquadronEvent
 
+case class SquadronSentToRetreat(squadron: SquadronId,
+                        location: Location) extends SquadronEvent
 
-case class SquadronArrived(squadron: SquadronId,
+case class SquadronArrivedToFight(squadron: SquadronId,
+                           location: Location) extends SquadronEvent
+
+case class SquadronArrivedToRetreat(squadron: SquadronId,
                            location: Location) extends SquadronEvent
 
 case class XWingLost(squadron: SquadronId,

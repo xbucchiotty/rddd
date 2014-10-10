@@ -1,40 +1,57 @@
 package fr.xebia.xke.rddd
 
-import akka.actor.Actor
+import akka.persistence.PersistentActor
 
 import scala.util.Random
 
-class DeathStar extends Actor {
+class DeathStar extends PersistentActor {
 
-  def receive = alive(100)
 
+  override val persistenceId: String = self.path.name
+
+
+  def receiveCommand = alive(100)
 
   def alive(healthPoints: Int): Receive = {
 
-
     case Torpedo(xwing) if healthPoints > 1 =>
-      if (fireBack) {
-        sender() ! FireBack(xwing)
+      persist(DeathStartTouched(healthPoints - 1)) { event =>
+        if (fireBack) {
+          sender() ! FireBack(xwing)
+        }
+        println(s"Deathstar: ${healthPoints - 1}")
+
+        context become alive(healthPoints - 1)
       }
 
-      context become alive(healthPoints - 1)
-
-
-
     case Torpedo(xwing) =>
-      context stop self
+      persist(DeathStartDestroyed)(_ => {
+        context.system.eventStream.publish(DeathStartDestroyed)
+
+        context stop self
+      })
 
 
   }
 
+  override def receiveRecover: Receive = {
+    case DeathStartTouched(remaining) =>
+      context become alive(remaining)
 
-  override def postStop(): Unit = {
-    println("End of DeathStar")
+    case DeathStartDestroyed =>
+      context.system.eventStream.publish(DeathStartDestroyed)
   }
+
 
   def fireBack: Boolean =
     Random.nextDouble() < threshold
 
 
   val threshold = .04
+
+
 }
+
+case object DeathStartDestroyed
+
+case class DeathStartTouched(remaining: Int)
