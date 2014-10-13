@@ -21,6 +21,8 @@ class Alliance(gameId : UUID) extends Actor {
   var squadronsHealth = squadrons.map(squadron => (squadron.path.name, 4)).toMap
 
   override def preStart(): Unit = {
+    println("Alliance is starting...")
+
     context.system.eventStream.subscribe(self, classOf[XWingLost])
     context.system.eventStream.subscribe(self, DeathStartDestroyed.getClass)
     val gameListener = context.actorOf(Props[SquadronEventListener], "squadronEventListener")
@@ -32,6 +34,7 @@ class Alliance(gameId : UUID) extends Actor {
   def receive = {
     case Attack(empire) =>
       val deathStar = empire / "deathStar-*"
+      println(s"Attacking $deathStar")
       squadrons.foreach(squadron => squadron ! Attack(deathStar))
 
     case XWingLost(squadronId, _) =>

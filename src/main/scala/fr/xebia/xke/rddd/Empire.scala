@@ -9,6 +9,11 @@ class Empire(gameId: UUID) extends Actor {
   def receive = PartialFunction.empty
 
   val almostHiddenDeathStar = context.actorOf(Props[DeathStar], s"deathStar-$gameId")
+
+  override def preStart(): Unit = {
+    println("Empire is starting...")
+    super.preStart()
+  }
 }
 
 object Empire {
