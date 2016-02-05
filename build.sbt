@@ -1,9 +1,14 @@
 name := "Reactive Domain Driven Design"
 
-libraryDependencies += "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.6"
+scalaVersion := "2.11.7"
 
-libraryDependencies += "com.typesafe.akka" %% "akka-http-core-experimental" % "0.7"
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.1" withSources()
 
-libraryDependencies += "com.typesafe.akka" %% "akka-cluster" % "2.3.6"
+libraryDependencies += "com.typesafe.akka" %% "akka-slf4j" % "2.4.1" withSources()
 
-libraryDependencies += "com.typesafe.akka" %% "akka-stream-experimental" % "0.7"
+libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3"
+
+
+fork in run := true
+
+cancelable in Global := true

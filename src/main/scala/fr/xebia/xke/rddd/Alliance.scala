@@ -1,9 +1,9 @@
 package fr.xebia.xke.rddd
 
-import akka.actor.{ActorRef, Actor}
+import akka.actor.{Props, ActorLogging, ActorRef, Actor}
 import fr.xebia.xke.rddd.infra.Base
 
-class Alliance extends Actor {
+class Alliance extends Actor with ActorLogging {
 
   val hiddenBase = context.actorOf(Base.props(), "Yavin4")
 

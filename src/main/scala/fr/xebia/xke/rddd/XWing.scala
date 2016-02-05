@@ -1,11 +1,11 @@
 package fr.xebia.xke.rddd
 
-import akka.actor.{Cancellable, Actor, Props}
+import akka.actor.{ActorLogging, Cancellable, Actor, Props}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
 
-class XWing extends Actor {
+class XWing extends Actor with ActorLogging{
 
 
   def receive = {
@@ -15,6 +15,7 @@ class XWing extends Actor {
       val target = context.actorSelection(targetPath)
 
       repeatEvery(113.milliseconds) {
+        log.debug("Fire")
         target.tell(Torpedo(from = xwingId), sender = aggregate)
 }
 

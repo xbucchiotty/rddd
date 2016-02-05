@@ -1,10 +1,10 @@
 package fr.xebia.xke.rddd
 
-import akka.actor.{Actor, ActorPath, Props}
+import akka.actor._
 
 import scala.concurrent.duration._
 
-class Squadron(base: ActorPath, size: Int) extends Actor {
+class Squadron(base: ActorPath, size: Int) extends Actor with ActorLogging {
 
   1 to size map (i => context.actorOf(XWing.props(), s"$squadronId-$i"))
 
